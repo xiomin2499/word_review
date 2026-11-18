@@ -129,6 +129,74 @@ export function shouldCaptureLookup(candidate, options = {}) {
 }
 
 /**
+ * Collapses noisy space- or punctuation-separated synonym lists into 1 concise primary meaning.
+ * Example: "回复 响应 反应 应对 反映 解答 回应" -> "回复"
+ */
+export function simplifyMeaning(text) {
+  const clean = normalizeText(text);
+  if (!clean) return '';
+
+  if (isMostlyCJK(clean)) {
+    // Split on explicit CJK/ASCII separators first
+    const bySep = clean.split(/[；;、,，/|]+/).map((s) => s.trim()).filter(Boolean);
+    const firstPart = bySep[0] || clean;
+    // If multiple space-separated pure CJK tokens were scraped together, keep only the first
+    if (/^[\u3400-\u9fff]+(?:\s+[\u3400-\u9fff]+)+$/.test(firstPart)) {
+      return firstPart.split(/\s+/)[0];
+    }
+    return firstPart;
+  }
+
+  return clean;
+}
+
+/**
+ * Filters alternatives so synonymous repeats are removed and at most 1 concise meaning
+ * is kept only when genuinely distinct parts of speech exist.
+ */
+export function simplifyAlternatives(meaning, rawAlts = []) {
+  if (!Array.isArray(rawAlts) || rawAlts.length === 0) return [];
+  const mainNorm = normalizeText(meaning).toLowerCase();
+  const seenTerms = new Set(mainNorm ? [mainNorm] : []);
+  const seenPos = new Set();
+  const inputPosSet = new Set();
+  const kept = [];
+
+  for (const raw of rawAlts) {
+    const clean = normalizeText(raw);
+    if (!clean) continue;
+
+    const match = clean.match(/^([^:：]{1,12})[:：]\s*(.+)$/);
+    const pos = match ? normalizeText(match[1]) : '';
+    if (pos) inputPosSet.add(pos);
+    const body = match ? normalizeText(match[2]) : clean;
+    const firstTerm = simplifyMeaning(body);
+    if (!firstTerm) continue;
+
+    const termLow = firstTerm.toLowerCase();
+    // Skip duplicates or overlapping synonyms of the primary meaning
+    if (seenTerms.has(termLow)) continue;
+    if (mainNorm && (termLow.includes(mainNorm) || mainNorm.includes(termLow))) continue;
+    if (pos && seenPos.has(pos)) continue;
+
+    // If an old single-POS synonym list was scraped ("名词: 响应、反应、应对"), skip it
+    // unless there are multiple distinct parts of speech to disambiguate.
+    if (!pos && isMostlyCJK(firstTerm)) continue;
+
+    seenTerms.add(termLow);
+    if (pos) seenPos.add(pos);
+    kept.push({ pos, term: firstTerm });
+  }
+
+  // Drop single-POS synonym noise when there is no second part of speech to disambiguate
+  if (kept.length <= 1 && inputPosSet.size <= 1) {
+    return [];
+  }
+
+  return kept.slice(0, 2).map((k) => (k.pos ? `${k.pos}: ${k.term}` : k.term));
+}
+
+/**
  * Normalizes a captured lookup into a study card where `word` is the foreign/target term
  * and `meaning` is the native explanation (handling both en->zh and zh->en seamlessly).
  */
@@ -152,16 +220,8 @@ export function extractStudyEntry(candidate) {
     direction = 'en->zh';
   }
 
-  const alternatives = [];
-  const seenAlts = new Set([meaning.toLowerCase()]);
-  for (const alt of rawAlts) {
-    const cleanAlt = normalizeText(alt);
-    if (cleanAlt && !seenAlts.has(cleanAlt.toLowerCase())) {
-      seenAlts.add(cleanAlt.toLowerCase());
-      alternatives.push(cleanAlt);
-    }
-    if (alternatives.length >= 6) break;
-  }
+  meaning = simplifyMeaning(meaning);
+  const alternatives = simplifyAlternatives(meaning, rawAlts);
 
   return {
     id: normalizeWordId(word),
@@ -228,14 +288,16 @@ export function normalizeStore(raw) {
       if (!val || typeof val !== 'object' || !val.word) continue;
       const id = normalizeWordId(val.id || key || val.word);
       if (!id) continue;
+      const rawMeaning = normalizeText(val.meaning);
+      const isScrapedSpaceList = /^[\u3400-\u9fff]+(?:\s+[\u3400-\u9fff]+)+$/.test(rawMeaning);
+      const cleanMeaning = isScrapedSpaceList ? simplifyMeaning(rawMeaning) : rawMeaning;
+      const cleanAlts = simplifyAlternatives(cleanMeaning, val.alternatives || []);
       items[id] = {
         id,
         word: normalizeText(val.word),
-        meaning: normalizeText(val.meaning),
+        meaning: cleanMeaning,
         phonetic: normalizeText(val.phonetic),
-        alternatives: Array.isArray(val.alternatives)
-          ? val.alternatives.map(normalizeText).filter(Boolean).slice(0, 6)
-          : [],
+        alternatives: cleanAlts,
         sourceLang: normalizeText(val.sourceLang) || 'auto',
         targetLang: normalizeText(val.targetLang) || 'zh-CN',
         direction: normalizeText(val.direction) || 'en->zh',
@@ -315,19 +377,18 @@ function applyUpsertLookup(items, op) {
   const lastMs = Date.parse(existing.lastLookupAt || '') || 0;
   const withinCooldown = tsMs >= lastMs && tsMs - lastMs < cooldownMs;
 
-  const mergedAlts = [...(existing.alternatives || [])];
-  for (const alt of entry.alternatives || []) {
-    if (alt && !mergedAlts.includes(alt) && alt.toLowerCase() !== (entry.meaning || '').toLowerCase()) {
-      mergedAlts.push(alt);
-    }
-  }
+  const nextMeaning = entry.meaning || existing.meaning;
+  const mergedAlts = simplifyAlternatives(nextMeaning, [
+    ...(existing.alternatives || []),
+    ...(entry.alternatives || []),
+  ]);
 
   items[id] = {
     ...existing,
     word: entry.word || existing.word,
-    meaning: entry.meaning || existing.meaning,
+    meaning: nextMeaning,
     phonetic: entry.phonetic || existing.phonetic,
-    alternatives: mergedAlts.slice(0, 6),
+    alternatives: mergedAlts,
     lookupCount: withinCooldown ? existing.lookupCount : existing.lookupCount + 1,
     // If user had to look up a "mastered" word again, put it back into learning!
     status: !withinCooldown && existing.status === 'mastered' ? 'learning' : existing.status,

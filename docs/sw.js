@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wordreview-shell-v1';
+const CACHE_NAME = 'wordreview-shell-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const APP_SHELL = [
   './js/app.js',
   './js/sync-core.js',
   './js/gist-client.js',
+  './js/tts.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon.svg',
@@ -37,24 +38,21 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-  // Never intercept GitHub API requests
+  // Never intercept external API or audio requests
   if (url.origin !== self.location.origin) {
     return;
   }
 
+  // Network-first so mobile gets updates immediately, falling back to cache when offline
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const networkFetch = fetch(request)
-        .then((res) => {
-          if (res && res.status === 200) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-
-      return cached || networkFetch;
-    })
+    fetch(request)
+      .then((res) => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(request))
   );
 });

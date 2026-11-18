@@ -106,14 +106,15 @@ async function fetchGoogleTranslateEnrichment(text, sourceLang = 'auto', targetL
     }
 
     const alternatives = [];
-    if (Array.isArray(data?.[1])) {
+    // Only include distinct parts of speech when a word has multiple POS (1 representative term per POS)
+    if (Array.isArray(data?.[1]) && data[1].length > 1) {
       for (const group of data[1]) {
         const pos = typeof group?.[0] === 'string' ? group[0] : '';
-        const terms = Array.isArray(group?.[1]) ? group[1].slice(0, 3).join('、') : '';
-        if (terms) {
-          alternatives.push(pos ? `${pos}: ${terms}` : terms);
+        const topTerm = Array.isArray(group?.[1]) && typeof group[1][0] === 'string' ? group[1][0].trim() : '';
+        if (topTerm && topTerm !== translatedText) {
+          alternatives.push(pos ? `${pos}: ${topTerm}` : topTerm);
         }
-        if (alternatives.length >= 4) break;
+        if (alternatives.length >= 2) break;
       }
     }
 

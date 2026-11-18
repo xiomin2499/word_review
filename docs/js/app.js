@@ -14,6 +14,7 @@ import {
   syncVocabGist,
   validateToken,
 } from './gist-client.js';
+import { playPronunciation } from './tts.js';
 
 const LS_KEYS = {
   CONFIG: 'wr_pwa_config_v1',
@@ -117,15 +118,19 @@ function consumePairingHash() {
   return true;
 }
 
-function speakText(text) {
-  try {
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = /[\u4e00-\u9fff]/.test(text) ? 'zh-CN' : 'en-US';
-    window.speechSynthesis.speak(u);
-  } catch {
-    // ignore speech error
-  }
+function speakText(text, btnEl = null) {
+  playPronunciation(text, {
+    onStart: () => {
+      if (btnEl) btnEl.textContent = '🔉';
+    },
+    onEnd: () => {
+      if (btnEl) btnEl.textContent = '🔊';
+    },
+    onError: (msg) => {
+      if (btnEl) btnEl.textContent = '🔊';
+      showToast(msg);
+    },
+  });
 }
 
 let syncInFlight = null;
@@ -355,7 +360,7 @@ function renderReviewView() {
   speakBtn.type = 'button';
   speakBtn.className = 'tool-btn';
   speakBtn.textContent = '🔊';
-  speakBtn.addEventListener('click', () => speakText(item.word));
+  speakBtn.addEventListener('click', () => speakText(item.word, speakBtn));
 
   const starBtn = document.createElement('button');
   starBtn.type = 'button';
@@ -558,7 +563,7 @@ function renderWordsView() {
     speakBtn.textContent = '🔊';
     speakBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      speakText(item.word);
+      speakText(item.word, speakBtn);
     });
 
     const starBtn = document.createElement('button');

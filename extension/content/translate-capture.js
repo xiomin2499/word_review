@@ -76,24 +76,38 @@
     return document.querySelector('main') || document.body;
   }
 
+  function isInsideAlternativesOrTable(el) {
+    return Boolean(
+      el.closest('table, tr, td, [role="table"], [data-dobid], [data-language-for-alternatives]')
+    );
+  }
+
   function extractResultText(root, sourceText) {
     const selectors = [
-      '[role="region"] span[jsname="W297wb"]',
       '[data-result-index="0"] span[jsname="W297wb"]',
-      '[role="region"] span.ryNqvb',
       '[data-result-index="0"] span.ryNqvb',
+      '[role="region"] span[jsname="W297wb"]',
+      '[role="region"] span.ryNqvb',
       'span[jsname="W297wb"]',
       'span.ryNqvb',
     ];
 
     for (const sel of selectors) {
       const nodes = Array.from(root.querySelectorAll(sel)).filter(
-        (el) => !isInsideSideDrawer(el) && !el.closest('textarea') && el.offsetParent !== null
+        (el) =>
+          !isInsideSideDrawer(el) &&
+          !isInsideAlternativesOrTable(el) &&
+          !el.closest('textarea') &&
+          el.offsetParent !== null
       );
       if (nodes.length > 0) {
-        // Deduplicate nested spans so we don't repeat text
-        const leafNodes = nodes.filter(
-          (node) => !nodes.some((other) => other !== node && node.contains(other))
+        // Scope strictly to the first translation container so "其他翻译" rows below are never merged in
+        const sentenceBox = nodes[0].closest('[data-result-index="0"], [jsname="jqKxS"]') || nodes[0].parentElement;
+        const primaryNodes = sentenceBox
+          ? nodes.filter((n) => sentenceBox.contains(n))
+          : [nodes[0]];
+        const leafNodes = primaryNodes.filter(
+          (node) => !primaryNodes.some((other) => other !== node && node.contains(other))
         );
         const combined = normalize(leafNodes.map((n) => n.textContent || '').join(' '));
         if (combined && combined !== sourceText) {
@@ -103,32 +117,23 @@
       }
     }
 
-    // Fallback: look for span[lang] inside result region
-    const langSpans = Array.from(root.querySelectorAll('[role="region"] span[lang], [aria-live="polite"] span[lang]')).filter(
-      (el) => !isInsideSideDrawer(el) && el.offsetParent !== null
-    );
+    // Fallback: look for span[lang] inside primary result container only
+    const langSpans = Array.from(
+      root.querySelectorAll('[data-result-index="0"] span[lang], [aria-live="polite"] span[lang]')
+    ).filter((el) => !isInsideSideDrawer(el) && !isInsideAlternativesOrTable(el) && el.offsetParent !== null);
     if (langSpans.length > 0) {
-      const text = normalize(langSpans.map((n) => n.textContent || '').join(' '));
+      const firstBox = langSpans[0].parentElement;
+      const scoped = firstBox ? langSpans.filter((n) => firstBox.contains(n)) : [langSpans[0]];
+      const text = normalize(scoped.map((n) => n.textContent || '').join(' '));
       if (text) return text;
     }
 
     return '';
   }
 
-  function extractAlternatives(root, primaryMeaning) {
-    const alts = [];
-    const seen = new Set([primaryMeaning.toLowerCase()]);
-    const altNodes = root.querySelectorAll('table tr td:first-child, [data-dobid="dfn"]');
-    for (const node of altNodes) {
-      if (isInsideSideDrawer(node)) continue;
-      const txt = normalize(node.textContent || '');
-      if (txt && txt.length <= 40 && !seen.has(txt.toLowerCase())) {
-        seen.add(txt.toLowerCase());
-        alts.push(txt);
-        if (alts.length >= 4) break;
-      }
-    }
-    return alts;
+  function extractAlternatives() {
+    // Keep only 1 concise meaning from primary translation; multi-POS disambiguation is handled in background enrichment
+    return [];
   }
 
   function extractLanguages(root, urlParams) {
@@ -154,7 +159,7 @@
     if (!sourceText) return null;
 
     const translatedText = extractResultText(root, sourceText);
-    const alternatives = translatedText ? extractAlternatives(root, translatedText) : [];
+    const alternatives = [];
     const { sourceLang, targetLang } = extractLanguages(root, urlParams);
 
     return {

@@ -1,5 +1,6 @@
 import { getActiveItems, sortItems } from '../lib/sync-core.js';
 import { renderQrSvg } from '../lib/qr.js';
+import { playPronunciation } from '../lib/tts.js';
 
 let currentState = null;
 
@@ -28,14 +29,7 @@ function formatSyncStatus(syncState, settings, pendingCount) {
 }
 
 function speakWord(word) {
-  try {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(word);
-    utter.lang = /[\u4e00-\u9fff]/.test(word) ? 'zh-CN' : 'en-US';
-    window.speechSynthesis.speak(utter);
-  } catch {
-    // ignore speech errors
-  }
+  playPronunciation(word);
 }
 
 function renderQr() {

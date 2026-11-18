@@ -9,7 +9,10 @@ import {
   extractStudyEntry,
   isDueForReview,
   isLikelyTypingCorrection,
+  normalizeStore,
   shouldCaptureLookup,
+  simplifyAlternatives,
+  simplifyMeaning,
   sortItems,
 } from '../shared/sync-core.js';
 
@@ -46,7 +49,7 @@ test('extractStudyEntry normalizes both en->zh and zh->en so English term is alw
   assert.equal(enToZh.id, 'params');
   assert.equal(enToZh.word, 'Params');
   assert.equal(enToZh.meaning, '参数');
-  assert.deepEqual(enToZh.alternatives, ['参量']);
+  assert.deepEqual(enToZh.alternatives, []);
   assert.equal(enToZh.direction, 'en->zh');
 
   const zhToEn = extractStudyEntry({
@@ -190,4 +193,34 @@ test('review progression, due calculation, sorting, and stats work accurately', 
   const stats = computeStats(store, nowMs);
   assert.equal(stats.total, 2);
   assert.equal(stats.highFreq, 1);
+});
+
+test('simplifyMeaning and simplifyAlternatives keep 1 concise meaning and filter synonym clutter', () => {
+  assert.equal(simplifyMeaning('回复 响应 反应 应对 反映 解答 回应'), '回复');
+  assert.equal(simplifyMeaning('探测；探针'), '探测');
+  assert.equal(simplifyMeaning('响应、反应、应对'), '响应');
+
+  // Single-POS synonym list is dropped cleanly
+  assert.deepEqual(simplifyAlternatives('回复', ['名词: 响应、反应、应对']), []);
+
+  // Multi-POS distinct meanings keep 1 concise term per distinct POS
+  assert.deepEqual(
+    simplifyAlternatives('探测', ['名词: 探针、探测器', '动词: 探测、探查']),
+    ['名词: 探针']
+  );
+
+  // Legacy scraped item in store is auto-cleaned by normalizeStore
+  const cleaned = normalizeStore({
+    version: 1,
+    items: {
+      response: {
+        id: 'response',
+        word: 'response',
+        meaning: '回复 响应 反应 应对 反映 解答 回应',
+        alternatives: ['名词: 响应、反应、应对'],
+      },
+    },
+  });
+  assert.equal(cleaned.items.response.meaning, '回复');
+  assert.deepEqual(cleaned.items.response.alternatives, []);
 });

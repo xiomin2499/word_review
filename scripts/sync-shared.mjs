@@ -17,6 +17,10 @@ const TARGETS = [
     src: 'shared/qr.js',
     dests: ['extension/lib/qr.js'],
   },
+  {
+    src: 'shared/tts.js',
+    dests: ['extension/lib/tts.js', 'docs/js/tts.js'],
+  },
 ];
 
 const checkOnly = process.argv.includes('--check');
