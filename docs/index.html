@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="WordReview" />
+  <title>WordReview 生词复习</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./css/app.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <!-- Top Header -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <img src="./icons/icon-192.png" alt="" class="topbar-logo" />
+        <div>
+          <div class="topbar-title">WordReview</div>
+          <div id="sync-indicator" class="sync-indicator">本地模式</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-install-pwa" class="pill-btn hidden" type="button">安装 App</button>
+        <button id="btn-sync-now" class="icon-circle-btn" type="button" title="同步云端">↻</button>
+      </div>
+    </header>
+
+    <!-- Main Scrollable Viewport -->
+    <main class="main-view">
+      <!-- TAB 1: REVIEW -->
+      <section id="view-review" class="tab-view active">
+        <div id="onboarding-card" class="onboarding-card hidden">
+          <div class="onboarding-title">欢迎使用 WordReview</div>
+          <p class="onboarding-desc">
+            推荐用电脑扩展弹窗里的「📱 手机扫码」直接打开本页即可自动绑定；也可以直接在下方输入 GitHub Token 自动关联你的云端词本。
+          </p>
+          <div class="onboarding-actions">
+            <button id="btn-go-bind" class="btn btn-primary" type="button">去绑定 GitHub 词本</button>
+            <button id="btn-load-demo" class="btn btn-secondary" type="button">先加载示例词卡体验</button>
+          </div>
+        </div>
+
+        <div class="filter-bar" id="review-filters">
+          <button class="filter-chip active" data-filter="due" type="button">待复习 <span id="chip-due-count">0</span></button>
+          <button class="filter-chip" data-filter="freq" type="button">高频易忘</button>
+          <button class="filter-chip" data-filter="starred" type="button">重点 ★</button>
+          <button class="filter-chip" data-filter="all" type="button">全部</button>
+        </div>
+
+        <div class="mode-row">
+          <button id="btn-toggle-direction" class="mini-pill" type="button">方向：英 → 中</button>
+          <button id="btn-toggle-peek" class="mini-pill" type="button">模式：遮盖释义</button>
+          <span id="deck-progress" class="deck-progress">0 / 0</span>
+        </div>
+
+        <div id="flashcard-stage" class="flashcard-stage">
+          <!-- Flashcard injected dynamically -->
+        </div>
+      </section>
+
+      <!-- TAB 2: WORDS LIST -->
+      <section id="view-words" class="tab-view">
+        <div class="search-row">
+          <input id="list-search" type="search" placeholder="搜索单词、释义或备注..." />
+          <button id="btn-open-add" class="btn btn-primary compact" type="button">+ 添加</button>
+        </div>
+        <div class="filter-bar" id="list-sorts">
+          <button class="filter-chip active" data-sort="recent" type="button">最近查询</button>
+          <button class="filter-chip" data-sort="freq" type="button">查词最多</button>
+          <button class="filter-chip" data-sort="az" type="button">A - Z</button>
+          <button class="filter-chip" data-sort="mastered" type="button">已掌握</button>
+        </div>
+        <div id="word-list-container" class="word-cards"></div>
+      </section>
+
+      <!-- TAB 3: STATS & SETTINGS -->
+      <section id="view-settings" class="tab-view">
+        <div class="stats-summary">
+          <div class="sum-box">
+            <div id="s-total" class="sum-val">0</div>
+            <div class="sum-lbl">总词数</div>
+          </div>
+          <div class="sum-box">
+            <div id="s-due" class="sum-val accent">0</div>
+            <div class="sum-lbl">待复习</div>
+          </div>
+          <div class="sum-box">
+            <div id="s-mastered" class="sum-val green">0</div>
+            <div class="sum-lbl">已掌握</div>
+          </div>
+          <div class="sum-box">
+            <div id="s-today" class="sum-val">0</div>
+            <div class="sum-lbl">今日新增</div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <h3>🔥 写代码最常反复查 Top 5</h3>
+          <div id="top-freq-list" class="top-freq-list"></div>
+        </div>
+
+        <div class="section-card">
+          <h3>☁️ GitHub Gist 云端同步</h3>
+          <p class="hint-text">支持与电脑端 Google 翻译插件双向自动合并。</p>
+          <div class="form-field">
+            <label for="cfg-token">GitHub Token</label>
+            <input id="cfg-token" type="password" placeholder="ghp_... 或 github_pat_..." />
+          </div>
+          <div class="form-field">
+            <label for="cfg-gist">Gist ID（留空可自动查找/新建）</label>
+            <input id="cfg-gist" type="text" placeholder="自动识别或手动粘贴 Gist ID" />
+          </div>
+          <div class="btn-row">
+            <button id="btn-save-sync" class="btn btn-primary" type="button">连接并立即同步</button>
+            <button id="btn-clear-sync" class="btn btn-ghost" type="button">解绑</button>
+          </div>
+          <div id="cfg-status" class="cfg-status hidden"></div>
+        </div>
+
+        <div class="section-card">
+          <h3>🎨 外观与备份</h3>
+          <div class="btn-row">
+            <button id="btn-theme-cycle" class="btn btn-secondary" type="button">主题：跟随系统</button>
+            <button id="btn-export-csv" class="btn btn-secondary" type="button">导出 CSV (Anki)</button>
+            <button id="btn-export-json" class="btn btn-ghost" type="button">导出 JSON</button>
+          </div>
+          <p id="ios-install-hint" class="hint-text hidden" style="margin-top: 10px;">
+            💡 iPhone 安装提示：点击 Safari 底部「分享」按钮，选择「添加到主屏幕」，即可像原生 App 一样全屏离线使用。
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Tab Navigation -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="review" type="button">
+        <span class="nav-icon">🃏</span>
+        <span class="nav-text">闪卡复习</span>
+      </button>
+      <button class="nav-item" data-tab="words" type="button">
+        <span class="nav-icon">📖</span>
+        <span class="nav-text">生词表</span>
+      </button>
+      <button class="nav-item" data-tab="settings" type="button">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-text">统计与同步</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Modal / Bottom Sheet for Word Detail & Add Word -->
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <strong id="modal-title">词条详情</strong>
+        <button id="btn-close-modal" class="icon-circle-btn small" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-field">
+          <label for="m-word">单词 / 短语</label>
+          <input id="m-word" type="text" placeholder="如 idempotent" />
+        </div>
+        <div class="form-field">
+          <label for="m-meaning">中文释义</label>
+          <input id="m-meaning" type="text" placeholder="如 幂等" />
+        </div>
+        <div class="form-field">
+          <label for="m-note">开发场景备注（可选）</label>
+          <textarea id="m-note" rows="2" placeholder="例如：HTTP PUT 接口重试需要保持幂等"></textarea>
+        </div>
+        <div id="m-meta-info" class="meta-info"></div>
+      </div>
+      <div class="modal-foot">
+        <button id="btn-modal-delete" class="btn btn-danger-ghost hidden" type="button">删除</button>
+        <div class="modal-foot-right">
+          <button id="btn-modal-star" class="btn btn-secondary hidden" type="button">☆ 重点</button>
+          <button id="btn-modal-save" class="btn btn-primary" type="button">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pwa-toast" class="pwa-toast hidden"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

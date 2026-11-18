@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "WordReview - Google翻译生词本",
+  "version": "1.0.0",
+  "description": "在 Google 翻译网页查询单词后自动去噪记录，通过 GitHub Gist 同步到手机 PWA 闪卡 App 随时复习。",
+  "permissions": [
+    "storage",
+    "alarms",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://translate.google.com/*",
+    "https://translate.google.com.hk/*",
+    "https://translate.googleapis.com/*",
+    "https://api.github.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "WordReview 生词本",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://translate.google.com/*",
+        "https://translate.google.com.hk/*"
+      ],
+      "js": [
+        "content/translate-capture.js"
+      ],
+      "css": [
+        "content/translate-capture.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WordReview 生词本</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <img src="../icons/icon48.png" alt="" class="logo" />
+        <div>
+          <div class="title">WordReview</div>
+          <div id="sync-status" class="sync-status">加载中...</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-sync" class="icon-btn" title="立即同步">↻</button>
+        <button id="btn-options" class="icon-btn" title="设置与向导">⚙</button>
+      </div>
+    </header>
+
+    <section id="setup-banner" class="setup-banner hidden">
+      <div class="setup-banner-title">尚未绑定云端同步</div>
+      <div class="setup-banner-desc">绑定 1 个 GitHub Token 即可自动同步到手机 PWA 复习。</div>
+      <button id="btn-go-setup" class="primary-btn">1 分钟完成配置 →</button>
+    </section>
+
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div id="stat-total" class="stat-num">0</div>
+        <div class="stat-label">总词数</div>
+      </div>
+      <div class="stat-card">
+        <div id="stat-due" class="stat-num accent">0</div>
+        <div class="stat-label">待复习</div>
+      </div>
+      <div class="stat-card">
+        <div id="stat-today" class="stat-num">0</div>
+        <div class="stat-label">今日新查</div>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <label class="toggle-wrap">
+        <input type="checkbox" id="toggle-enabled" />
+        <span>自动记录 Google 翻译</span>
+      </label>
+      <div class="toolbar-btns">
+        <button id="btn-toggle-add" class="chip-btn">+ 手动</button>
+        <button id="btn-toggle-qr" class="chip-btn chip-primary">📱 手机扫码</button>
+      </div>
+    </section>
+
+    <section id="manual-panel" class="panel hidden">
+      <div class="panel-row">
+        <input id="input-word" type="text" placeholder="英文单词，如 probe" />
+        <input id="input-meaning" type="text" placeholder="中文释义，如 探测" />
+      </div>
+      <div class="panel-actions">
+        <button id="btn-add-word" class="primary-btn small">添加到生词本</button>
+      </div>
+    </section>
+
+    <section id="qr-panel" class="panel hidden">
+      <div class="panel-title">手机扫码打开并自动绑定词本</div>
+      <div id="qr-box" class="qr-box"></div>
+      <div class="qr-url-row">
+        <input id="input-pwa-url" type="url" placeholder="https://你的用户名.github.io/word_review/" />
+        <button id="btn-save-pwa-url" class="chip-btn">保存</button>
+      </div>
+      <div id="qr-hint" class="qr-hint"></div>
+    </section>
+
+    <section class="recent-section">
+      <div class="section-head">
+        <span>最近记录</span>
+        <input id="input-search" type="search" placeholder="搜索单词..." />
+      </div>
+      <ul id="word-list" class="word-list"></ul>
+      <div id="empty-state" class="empty-state hidden">
+        还没有记录单词。<br />
+        请在 <a href="https://translate.google.com/?sl=auto&tl=zh-CN&op=translate" target="_blank" rel="noreferrer">Google 翻译（英→中）</a> 查个词（刚装扩展请先刷新该网页），页面右下角出现提示即记录成功。
+      </div>
+    </section>
+  </div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

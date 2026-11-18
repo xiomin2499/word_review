@@ -1,0 +1,15 @@
+{
+  "name": "word-review",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Auto-capture Google Translate lookups in Chrome and review them in a mobile PWA synced via GitHub Gist.",
+  "scripts": {
+    "sync-shared": "node scripts/sync-shared.mjs",
+    "test": "node scripts/sync-shared.mjs --check && node --test tests/*.test.mjs",
+    "preview": "node scripts/preview-server.mjs"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0"
+  }
+}
